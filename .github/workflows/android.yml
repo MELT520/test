@@ -46,7 +46,7 @@ jobs:
       - name: Setup Node.js (must be before pnpm)
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -61,6 +61,13 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Approve sharp build scripts
+        working-directory: template
+        run: |
+          cat > .npmrc << 'EOF'
+          onlyBuiltDependencies[]=sharp
+          EOF
 
       - name: Install dependencies
         working-directory: template
