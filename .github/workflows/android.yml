@@ -70,8 +70,10 @@ jobs:
           if [ -f app/src/main/res/values/strings.xml ]; then
             sed -i "s/PakePlus/${{ github.event.inputs.project_name }}/g" app/src/main/res/values/strings.xml
           fi
-          if [ -f app/build.gradle.kts ]; then
-            sed -i "s/com\.app\.pakeplus/${{ github.event.inputs.package_name }}/g" app/build.gradle.kts
+          NEW_PKG="${{ github.event.inputs.package_name }}"
+          if [ -f app/build.gradle.kts ] && [ -n "$NEW_PKG" ] && [ "$NEW_PKG" != "com.example.app" ]; then
+            sed -i "s/applicationId = \".*\"/applicationId = \"$NEW_PKG\"/" app/build.gradle.kts
+            echo "Updated applicationId to: $NEW_PKG"
           fi
 
       - name: Build Debug APK
