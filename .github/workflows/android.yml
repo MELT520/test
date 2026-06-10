@@ -65,9 +65,13 @@ jobs:
       - name: Approve sharp build scripts
         working-directory: template
         run: |
-          cat > .npmrc << 'EOF'
-          onlyBuiltDependencies[]=sharp
-          EOF
+          node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('./package.json','utf8'));
+          pkg.pnpm = pkg.pnpm || {};
+          pkg.pnpm.onlyBuiltDependencies = ['sharp'];
+          fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+          "
 
       - name: Install dependencies
         working-directory: template
