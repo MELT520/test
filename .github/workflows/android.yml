@@ -1,0 +1,104 @@
+name: Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: '应用名称'
+        required: true
+        default: 'MyApp'
+      url:
+        description: '目标网址'
+        required: true
+        default: 'https://example.com'
+      package_name:
+        description: '包名'
+        required: false
+        default: 'com.example.app'
+      version:
+        description: '版本号'
+        required: false
+        default: '1.0.0'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo (includes android/ template)
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        working-directory: android
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Generate icons
+        working-directory: android
+        run: pnpm pp:worker 2>/dev/null || echo "Icon generation skipped"
+
+      - name: Apply project config
+        working-directory: android
+        run: |
+          echo "Project: ${{ github.event.inputs.project_name }}"
+          echo "URL: ${{ github.event.inputs.url }}"
+
+          # Update app name
+          if [ -f app/src/main/res/values/strings.xml ]; then
+            sed -i "s/PakePlus/${{ github.event.inputs.project_name }}/g" app/src/main/res/values/strings.xml
+          fi
+
+          # Update package name
+          if [ -f app/build.gradle.kts ]; then
+            sed -i "s/com\.app\.pakeplus/${{ github.event.inputs.package_name }}/g" app/build.gradle.kts
+          fi
+
+      - name: Build Debug APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Collect APK
+        run: |
+          mkdir -p apk-output
+          find android -name "*.apk" -exec cp {} apk-output/ \;
+          ls -la apk-output/
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}
+          path: apk-output/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: apk-output/*.apk
+          tag_name: ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}
+          name: '${{ github.event.inputs.project_name }} v${{ github.event.inputs.version }}'
+          body: 'Auto-built APK for ${{ github.event.inputs.project_name }}'
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

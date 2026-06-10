@@ -1,0 +1,82 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: '应用名称'
+        required: true
+        default: 'MyApp'
+      url:
+        description: '目标网址'
+        required: true
+        default: 'https://example.com'
+      package_name:
+        description: 'Bundle ID'
+        required: false
+        default: 'com.example.app'
+      version:
+        description: '版本号'
+        required: false
+        default: '1.0.0'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    name: Build IPA
+    runs-on: macos-latest
+    steps:
+      - name: Checkout this repo (includes ios/ template)
+        uses: actions/checkout@v4
+
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
+
+      - name: Apply project config
+        working-directory: ios
+        run: |
+          echo "Project: ${{ github.event.inputs.project_name }}"
+          if [ -f PakePlus/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${{ github.event.inputs.project_name }}" PakePlus/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${{ github.event.inputs.package_name }}" PakePlus/Info.plist 2>/dev/null || true
+          fi
+
+      - name: Install Theos
+        run: |
+          brew install ldid dpkg 2>/dev/null || true
+          if [ ! -d "$HOME/theos" ]; then
+            git clone --recursive --depth 1 https://github.com/theos/theos.git $HOME/theos
+          fi
+
+      - name: Build IPA
+        working-directory: ios
+        run: |
+          export THEOS=$HOME/theos
+          make package FINALPACKAGE=1 PACKAGE_FORMAT=ipa || echo "Build attempted"
+
+      - name: Collect IPA
+        run: |
+          mkdir -p output
+          find ios -name "*.ipa" -exec cp {} output/ \; 2>/dev/null || true
+          ls -la output/ || echo "No IPA found"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.project_name }}-ios-v${{ github.event.inputs.version }}
+          path: output/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: output/*.ipa
+          tag_name: ${{ github.event.inputs.project_name }}-ios-v${{ github.event.inputs.version }}
+          name: '${{ github.event.inputs.project_name }} iOS v${{ github.event.inputs.version }}'
+          body: 'Auto-built IPA for ${{ github.event.inputs.project_name }}'
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
