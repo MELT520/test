@@ -19,6 +19,10 @@ on:
         description: 'Version'
         required: false
         default: '1.0.0'
+      icon_url:
+        description: 'App icon URL (PNG, 512x512 recommended)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -61,6 +65,15 @@ jobs:
       - name: Install dependencies
         working-directory: android
         run: pnpm install --no-frozen-lockfile
+
+      - name: Download custom icon
+        if: ${{ github.event.inputs.icon_url != '' }}
+        working-directory: android
+        run: |
+          ICON_URL="${{ github.event.inputs.icon_url }}"
+          echo "Downloading icon from: $ICON_URL"
+          curl -fsSL -o app-icon.png "$ICON_URL" || wget -q -O app-icon.png "$ICON_URL"
+          echo "Icon downloaded, size: $(wc -c < app-icon.png) bytes"
 
       - name: Apply project config (before pp:worker)
         working-directory: android
