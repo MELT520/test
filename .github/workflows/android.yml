@@ -58,9 +58,9 @@ jobs:
         working-directory: android
         run: pnpm install --no-frozen-lockfile
 
-      - name: Generate icons
+      - name: Generate icons (show errors)
         working-directory: android
-        run: pnpm pp:worker 2>/dev/null || echo "Icon generation skipped"
+        run: pnpm pp:worker || echo "Icon generation had issues but continuing..."
 
       - name: Apply project config
         working-directory: android
@@ -76,11 +76,41 @@ jobs:
             echo "Updated applicationId to: $NEW_PKG"
           fi
 
+      - name: Diagnostics - check project state
+        working-directory: android
+        run: |
+          echo "=== Gradle version ==="
+          ./gradlew --version 2>&1 | head -5
+          echo "=== build.gradle.kts applicationId ==="
+          grep "applicationId\|namespace" app/build.gradle.kts
+          echo "=== Layout files ==="
+          ls app/src/main/res/layout/
+          echo "=== Kotlin source files ==="
+          find app/src/main/java -name "*.kt" | sort
+          echo "=== Android SDK ==="
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          echo "=== local.properties ==="
+          cat local.properties 2>/dev/null || echo "(not found — will use env vars)"
+
       - name: Build Debug APK
         working-directory: android
         run: |
           chmod +x ./gradlew
           ./gradlew clean assembleDebug --stacktrace
+
+      - name: Diagnostics - check generated files
+        if: always()
+        working-directory: android
+        run: |
+          echo "=== Looking for generated R.java ==="
+          find app/build -name "R.java" -path "*/debug/*" 2>/dev/null || echo "R.java NOT FOUND!"
+          echo "=== Looking for any R files ==="
+          find app/build -name "R.*" 2>/dev/null | head -5 || echo "No R files found"
+          echo "=== Looking for generated binding classes ==="
+          find app/build -name "*Binding*.java" 2>/dev/null | head -5 || echo "No binding files found"
+          echo "=== Build output dirs ==="
+          ls -d app/build/generated/*/ 2>/dev/null || echo "No generated dirs"
 
       - name: Collect APK
         run: |
