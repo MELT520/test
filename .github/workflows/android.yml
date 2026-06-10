@@ -19,11 +19,10 @@ on:
           description: 'Version'
           required: false
           default: '1.0.0'
-
-  env:
+env:
     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-  jobs:
+jobs:
     build:
       name: Build APK
       runs-on: ubuntu-latest
