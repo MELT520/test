@@ -17,8 +17,5 @@
         "commander": "^13.1.0",
         "fs-extra": "^11.3.0",
         "sharp": "^0.34.1"
-    },
-    "pnpm": {
-        "onlyBuiltDependencies": ["sharp"]
     }
 }
