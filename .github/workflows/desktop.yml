@@ -24,6 +24,9 @@ on:
         required: false
         default: '720'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     strategy:
@@ -32,13 +35,10 @@ jobs:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            ext: .exe
           - platform: macos-latest
             target: x86_64-apple-darwin
-            ext: .dmg
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            ext: .AppImage
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -47,16 +47,15 @@ jobs:
       - name: Clone PakePlus desktop template
         run: git clone --depth 1 https://github.com/Sjj1024/PakePlus.git template
 
-      - uses: pnpm/action-setup@v3
-        with:
-          version: latest
-
-      - name: Setup Node
+      - name: Setup Node.js (must be before pnpm)
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: template/pnpm-lock.yaml
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -71,7 +70,7 @@ jobs:
 
       - name: Install frontend deps
         working-directory: template
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: Build
         working-directory: template

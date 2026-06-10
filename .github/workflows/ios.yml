@@ -28,6 +28,9 @@ on:
         required: false
         default: ''
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build IPA
@@ -35,8 +38,6 @@ jobs:
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
-        with:
-          path: config-repo
 
       - name: Clone PakePlus iOS template
         run: |
@@ -51,9 +52,10 @@ jobs:
         working-directory: template
         run: |
           echo "Applying config for: ${{ github.event.inputs.project_name }}"
-          # Update bundle display name
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${{ github.event.inputs.project_name }}" PakePlus/Info.plist 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${{ github.event.inputs.package_name }}" PakePlus/Info.plist 2>/dev/null || true
+          if [ -f PakePlus/Info.plist ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${{ github.event.inputs.project_name }}" PakePlus/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${{ github.event.inputs.package_name }}" PakePlus/Info.plist 2>/dev/null || true
+          fi
 
       - name: Install Theos dependencies
         run: |
@@ -66,18 +68,18 @@ jobs:
         working-directory: template
         run: |
           export THEOS=$HOME/theos
-          make package FINALPACKAGE=1 PACKAGE_FORMAT=ipa || echo "Build attempted"
+          make package FINALPACKAGE=1 PACKAGE_FORMAT=ipa || echo "Build attempted, check logs"
 
-      - name: Find and upload IPA
+      - name: Collect IPA
         run: |
           mkdir -p output
           find template -name "*.ipa" -exec cp {} output/ \; 2>/dev/null || true
-          ls -la output/ || echo "No IPA found, check build logs"
+          ls -la output/ || echo "No IPA found"
 
       - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.project_name }}-ios-v${{ github.event.inputs.version }}
           path: output/
 
       - name: Create GitHub Release
