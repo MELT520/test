@@ -4,19 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       project_name:
-        description: '应用名称'
+        description: 'Application name'
         required: true
         default: 'MyApp'
       url:
-        description: '目标网址'
+        description: 'Target URL'
         required: true
         default: 'https://example.com'
       package_name:
-        description: '包名'
+        description: 'Package name'
         required: false
         default: 'com.example.app'
       version:
-        description: '版本号'
+        description: 'Version'
         required: false
         default: '1.0.0'
 
@@ -63,13 +63,9 @@ jobs:
         run: |
           echo "Project: ${{ github.event.inputs.project_name }}"
           echo "URL: ${{ github.event.inputs.url }}"
-
-          # Update app name
           if [ -f app/src/main/res/values/strings.xml ]; then
             sed -i "s/PakePlus/${{ github.event.inputs.project_name }}/g" app/src/main/res/values/strings.xml
           fi
-
-          # Update package name
           if [ -f app/build.gradle.kts ]; then
             sed -i "s/com\.app\.pakeplus/${{ github.event.inputs.package_name }}/g" app/build.gradle.kts
           fi
