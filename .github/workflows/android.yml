@@ -1,0 +1,117 @@
+name: Android Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: '应用名称'
+        required: true
+        default: 'MyApp'
+      url:
+        description: '目标网址'
+        required: true
+        default: 'https://example.com'
+      package_name:
+        description: '包名'
+        required: false
+        default: 'com.example.app'
+      version:
+        description: '版本号'
+        required: false
+        default: '1.0.0'
+      icon_base64:
+        description: '图标 Base64'
+        required: false
+        default: ''
+      custom_js:
+        description: '自定义 JS (Base64)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          path: config-repo
+
+      - name: Clone PakePlus Android template
+        run: |
+          git clone --depth 1 https://github.com/Sjj1024/PakePlus-Android.git template
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: latest
+
+      - name: Sync node version and setup cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: template/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: template
+        run: pnpm install
+
+      - name: Apply project config
+        working-directory: template
+        run: |
+          echo "Applying project name: ${{ github.event.inputs.project_name }}"
+          echo "Target URL: ${{ github.event.inputs.url }}"
+          # Write config to assets or res
+          mkdir -p app/src/main/assets
+          cat > app/src/main/assets/pakeplus_config.json << EOF
+          {
+            "name": "${{ github.event.inputs.project_name }}",
+            "url": "${{ github.event.inputs.url }}",
+            "package": "${{ github.event.inputs.package_name }}",
+            "version": "${{ github.event.inputs.version }}"
+          }
+          EOF
+
+          # Update app name in strings.xml
+          sed -i "s/PakePlus/${{ github.event.inputs.project_name }}/g" app/src/main/res/values/strings.xml 2>/dev/null || true
+
+      - name: Grant Execute Permission for Gradle
+        working-directory: template
+        run: chmod +x ./gradlew
+
+      - name: Build Debug APK
+        working-directory: template
+        run: ./gradlew assembleDebug
+
+      - name: Rename APK
+        working-directory: template
+        run: |
+          cd app/build/outputs/apk/debug/
+          mv app-debug.apk ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}.apk
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}
+          path: template/app/build/outputs/apk/debug/*.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: template/app/build/outputs/apk/debug/*.apk
+          tag_name: ${{ github.event.inputs.project_name }}-v${{ github.event.inputs.version }}
+          name: '${{ github.event.inputs.project_name }} v${{ github.event.inputs.version }}'
+          body: 'Auto-built APK for ${{ github.event.inputs.project_name }}'
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
