@@ -62,17 +62,6 @@ jobs:
         working-directory: android
         run: pnpm pp:worker 2>/dev/null || echo "Icon generation skipped"
 
-      - name: Generate keystore for signing
-        working-directory: android
-        run: |
-          keytool -genkey -v \
-            -keystore pakeplus.keystore \
-            -alias pakeplus \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass 1024xiaoshen -keypass 1024xiaoshen \
-            -dname "CN=PakePlus, OU=Dev, O=PakePlus, L=City, S=State, C=CN" \
-            -noprompt
-
       - name: Apply project config
         working-directory: android
         run: |
