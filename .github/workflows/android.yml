@@ -50,9 +50,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Approve sharp builds (pnpm v10+)
+      - name: Allow sharp build scripts (pnpm v10+)
         working-directory: android
-        run: pnpm approve-builds sharp 2>/dev/null || echo "onlyBuiltDependencies[]=sharp" >> .npmrc
+        run: |
+          cat >> .npmrc << 'EOF'
+          onlyBuiltDependencies[]=sharp
+          EOF
 
       - name: Install dependencies
         working-directory: android
