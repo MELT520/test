@@ -68,13 +68,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: Approve build scripts
-        working-directory: template
-        run: echo "only-built-dependencies[]=sharp" >> .npmrc
-
       - name: Install frontend deps
         working-directory: template
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile --ignore-scripts
 
       - name: Build
         working-directory: template

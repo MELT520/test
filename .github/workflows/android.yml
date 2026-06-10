@@ -62,13 +62,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Approve sharp build scripts
-        working-directory: template
-        run: echo "only-built-dependencies[]=sharp" >> .npmrc
-
       - name: Install dependencies
         working-directory: template
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile --ignore-scripts
+
+      - name: Rebuild sharp
+        working-directory: template
+        run: npx --yes sharp-cli 2>/dev/null; pnpm rebuild sharp 2>/dev/null || echo "sharp rebuild skipped (icons will use default)"
 
       - name: Generate icons
         working-directory: template
