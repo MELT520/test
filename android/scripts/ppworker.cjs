@@ -15,7 +15,7 @@ async function generateAdaptiveIcons(input, output) {
 
     // icon背景颜色,可设置为none透明
     const bgColor = '#FFFFFF'
-    // 一般0.75, 前景最大占比（安全区）
+    // 安全区占比
     const foregroundScale = 0.68
 
     if (!fs.existsSync(output)) {
@@ -24,7 +24,8 @@ async function generateAdaptiveIcons(input, output) {
 
     // Read input image once
     const inputBuffer = fs.readFileSync(input)
-    const inputSharp = sharp(inputBuffer)
+    const metadata = await sharp(inputBuffer).metadata()
+    console.log(`📷 Input icon: ${metadata.width}x${metadata.height}, format: ${metadata.format}`)
 
     for (const [folder, size] of Object.entries(densities)) {
         const dir = path.join(output, folder)
@@ -32,8 +33,15 @@ async function generateAdaptiveIcons(input, output) {
 
         const backgroundFile = path.join(dir, 'ic_launcher_background.png')
         const foregroundFile = path.join(dir, 'ic_launcher_foreground.png')
+        const launcherFile = path.join(dir, 'ic_launcher.png')
 
-        // 背景：纯色填充（全覆盖）using sharp
+        // === 1. 生成传统的 ic_launcher.png (全尺寸，兼容所有 Android 版本和启动器) ===
+        await sharp(inputBuffer)
+            .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .png()
+            .toFile(launcherFile)
+
+        // === 2. 背景：纯色填充（全覆盖） ===
         await sharp({
             create: {
                 width: size,
@@ -45,13 +53,11 @@ async function generateAdaptiveIcons(input, output) {
             .png()
             .toFile(backgroundFile)
 
-        // 前景大小 = 图标尺寸 × foregroundScale
+        // === 3. 前景：缩放到安全区域，居中 ===
         const fgSize = Math.round(size * foregroundScale)
-
-        // 前景：缩放到安全区域，居中，四周自动留边 using sharp
-        const padSize = Math.round((size - fgSize) / 2)
-        await inputSharp
-            .clone()
+        // 使用 Math.floor 避免 padding 溢出
+        const padSize = Math.floor((size - fgSize) / 2)
+        await sharp(inputBuffer)
             .resize(fgSize, fgSize)
             .extend({
                 top: padSize,
@@ -75,8 +81,10 @@ async function generateAdaptiveIcons(input, output) {
 </adaptive-icon>`
 
     fs.writeFileSync(path.join(anydpiDir, 'ic_launcher.xml'), xml, 'utf-8')
+    // Also generate ic_launcher_round.xml
+    fs.writeFileSync(path.join(anydpiDir, 'ic_launcher_round.xml'), xml, 'utf-8')
 
-    console.log('✅ Adaptive Icons 已生成:', output)
+    console.log('✅ Adaptive Icons + traditional launcher icons 已生成:', output)
 }
 
 const updateAppName = async (androidResDir, appName) => {
@@ -550,6 +558,12 @@ const main = async () => {
     const dest = path.resolve(copyTo)
     await fs.copy(outPath, dest, { overwrite: true })
     console.log(`📦 Icons copied to Android res dir: ${dest}`)
+
+    // 删除模板默认的 vector drawable 图标（避免干扰新生成的 PNG 图标）
+    const oldDrawableBg = path.join(dest, 'drawable', 'ic_launcher_background.xml')
+    const oldDrawableFg = path.join(dest, 'drawable', 'ic_launcher_foreground.xml')
+    if (fs.existsSync(oldDrawableBg)) { fs.removeSync(oldDrawableBg); console.log('🗑 Removed old drawable/ic_launcher_background.xml') }
+    if (fs.existsSync(oldDrawableFg)) { fs.removeSync(oldDrawableFg); console.log('🗑 Removed old drawable/ic_launcher_foreground.xml') }
 
     // Update app name if provided
     await updateAppName(dest, showName)
