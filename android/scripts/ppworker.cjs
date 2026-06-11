@@ -1,9 +1,10 @@
 const fs = require('fs-extra')
 const path = require('path')
 const { execSync } = require('child_process')
+const sharp = require('sharp')
 const ppconfig = require('./ppconfig.json')
 
-function generateAdaptiveIcons(input, output) {
+async function generateAdaptiveIcons(input, output) {
     const densities = {
         'mipmap-mdpi': 48,
         'mipmap-hdpi': 72,
@@ -21,6 +22,10 @@ function generateAdaptiveIcons(input, output) {
         fs.mkdirSync(output, { recursive: true })
     }
 
+    // Read input image once
+    const inputBuffer = fs.readFileSync(input)
+    const inputSharp = sharp(inputBuffer)
+
     for (const [folder, size] of Object.entries(densities)) {
         const dir = path.join(output, folder)
         if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
@@ -28,19 +33,35 @@ function generateAdaptiveIcons(input, output) {
         const backgroundFile = path.join(dir, 'ic_launcher_background.png')
         const foregroundFile = path.join(dir, 'ic_launcher_foreground.png')
 
-        // linux只能convert， 背景：纯色填充（全覆盖）
-        execSync(
-            `convert -size ${size}x${size} canvas:"${bgColor}" ${backgroundFile}`
-        )
+        // 背景：纯色填充（全覆盖）using sharp
+        await sharp({
+            create: {
+                width: size,
+                height: size,
+                channels: 4,
+                background: bgColor,
+            },
+        })
+            .png()
+            .toFile(backgroundFile)
 
-        // 前景大小 = 图标尺寸 × 0.75
+        // 前景大小 = 图标尺寸 × foregroundScale
         const fgSize = Math.round(size * foregroundScale)
 
-        // 前景：缩放到安全区域，居中，四周自动留边
-        execSync(
-            `convert "${input}" -resize ${fgSize}x${fgSize} ` +
-                `-gravity center -background none -extent ${size}x${size} ${foregroundFile}`
-        )
+        // 前景：缩放到安全区域，居中，四周自动留边 using sharp
+        const padSize = Math.round((size - fgSize) / 2)
+        await inputSharp
+            .clone()
+            .resize(fgSize, fgSize)
+            .extend({
+                top: padSize,
+                bottom: padSize,
+                left: padSize,
+                right: padSize,
+                background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+            .png()
+            .toFile(foregroundFile)
     }
 
     // 生成 Adaptive Icon XML (放到 mipmap-anydpi-v26)
@@ -524,7 +545,7 @@ const main = async () => {
     } = ppconfig.android
 
     const outPath = path.resolve(output)
-    generateAdaptiveIcons(input, outPath)
+    await generateAdaptiveIcons(input, outPath)
 
     const dest = path.resolve(copyTo)
     await fs.copy(outPath, dest, { overwrite: true })

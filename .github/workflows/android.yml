@@ -98,9 +98,19 @@ jobs:
             echo "Updated applicationId to: $NEW_PKG"
           fi
 
-      - name: Generate icons (show errors)
+      - name: Check app-icon.png exists
         working-directory: android
-        run: pnpm pp:worker || echo "Icon generation had issues but continuing..."
+        run: |
+          if [ -f "app-icon.png" ]; then
+            echo "✅ app-icon.png found ($(wc -c < app-icon.png) bytes)"
+          else
+            echo "⚠️ app-icon.png NOT found — using fallback default"
+            cp scripts/assets/app-icon.png app-icon.png
+          fi
+
+      - name: Generate icons
+        working-directory: android
+        run: pnpm pp:worker
 
       - name: Ensure URL in app.json
         working-directory: android
