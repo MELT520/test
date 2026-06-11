@@ -88,7 +88,11 @@ jobs:
             sed -i "s|\"webUrl\": \"https://juejin.cn/\"|\"webUrl\": \"$URL\"|" scripts/ppconfig.json
             echo "Injected URL into ppconfig.json"
           fi
-          # Update app name
+          # Inject project name into ppconfig.json (used by pp:worker -> updateAppName)
+          sed -i "s|\"showName\": \"PakePlus\"|\"showName\": \"$PROJECT\"|g" scripts/ppconfig.json
+          sed -i "s|\"name\": \"PakePlus\"|\"name\": \"$PROJECT\"|g" scripts/ppconfig.json
+          echo "Injected project name '$PROJECT' into ppconfig.json"
+          # Update app name in strings.xml (fallback)
           if [ -f app/src/main/res/values/strings.xml ]; then
             sed -i "s/PakePlus/$PROJECT/g" app/src/main/res/values/strings.xml
           fi
